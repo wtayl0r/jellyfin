@@ -15,10 +15,16 @@ using Emby.Server.Implementations.IO;
 using Emby.Server.Implementations.Networking;
 using Jellyfin.Drawing.Skia;
 using MediaBrowser.Common.Configuration;
+using MediaBrowser.Controller;
 using MediaBrowser.Controller.Drawing;
 using MediaBrowser.Model.Globalization;
 using MediaBrowser.Model.IO;
+using MediaBrowser.Model.System;
+using Microsoft.AspNetCore;
+using Microsoft.AspNetCore.Hosting;
 using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.Extensions.Logging;
 using Serilog;
 using Serilog.AspNetCore;
@@ -80,7 +86,9 @@ namespace Jellyfin.Server
 
             _logger.LogInformation("Jellyfin version: {Version}", version);
 
-            EnvironmentInfo environmentInfo = new EnvironmentInfo(getOperatingSystem());
+            var newHost = CreateWebHostBuilder(args, options, appPaths).Build();
+
+            EnvironmentInfo environmentInfo = new EnvironmentInfo();
             ApplicationHost.LogEnvironmentInfo(_logger, appPaths, environmentInfo);
 
             SQLitePCL.Batteries_V2.Init();
@@ -353,6 +361,21 @@ namespace Jellyfin.Server
             }
 
             return "\"" + arg + "\"";
+        }
+
+        public static IWebHostBuilder CreateWebHostBuilder(
+            string[] args,
+            StartupOptions options,
+            ServerApplicationPaths appPaths)
+        {
+            return WebHost.CreateDefaultBuilder(args)
+                .ConfigureServices(services =>
+                {
+                    services.AddSingleton(options);
+                    services.AddSingleton<IServerApplicationPaths>(appPaths);
+
+                    ServerImplementationsModule.RegisterServices(services);
+                });
         }
     }
 }
